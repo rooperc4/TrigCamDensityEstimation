@@ -16,7 +16,9 @@ devtools::install_github("rooperc4/TrigCamDensityEstimation")
 library("TrigCamDensityEstimation")
 ```
 
-The functions contained in this package are used to estimate densities of fish using a stationary camera platform. In short, this analysis takes a matrix of densities from individual camera frames for a species in range bins with volume estimates for each range bin. It makes a volume-weighted estimate of the detection function by fitting a  logistic function. This function can then be used to estimate a density for the species in each frame. These can be averaged across frames to come up with a volumetric density estimate. 
+##Purpose
+
+The functions contained in this package are used to estimate densities of fish using a stationary camera platform (e.g. Williams et al. 2014). The functions follow the method of Williams et al. (2018) In short, this analysis takes a matrix of densities from individual camera frames for a species in range bins with volume estimates for each range bin. It makes a volume-weighted estimate of the detection function by fitting a  logistic function. This function can then be used to estimate a density for the species in each frame. These can be averaged across frames to come up with a volumetric density estimate. 
 
 
 ```{r Figure 1, echo=FALSE}
@@ -24,22 +26,27 @@ p<-image_read("Slide1.PNG")
 plot(p)
 ```
 
+##Package Functions and Example Using Bocaccio Rockfish Data
 
 As an example, we will use bocaccio rockfish data collected at 30 sites over ~24 hour deployments on the Footprint Bank. These data were collected in October 2017 aboard the R/V Bell-Shimada. In this case the columns are a deployment number, a range bin and a volumetric density in that range bin. 
 
 ```{r load data}
 data(bocaccio)
-pander::pandoc.table(bocaccio[1:6,], digits=3 )
+pander::pandoc.table(bocaccio[1:6,], digits=3, split.tables=Inf)
 
 ```
 
-To fit the model, we call the logistic model function that serves as a wrapper for the model fitting. The logistic model function is the wrapper that inputs the observations of density, volume and range and fits the logistic model. It also takes inputs of a species name and a deployment number (for ease of looping across species and deployments). Weights can also be included for weighting the AIC calculation. It outputs an estimate of the density (the y-intercept of the model), a bootstrapped error estimate (n = 500 permutations of the data) and a plot of the fitted logistic function (output in ggplot). The output also includes a list of fitted values (parameters, AIC, etc.). 
+To fit the model, we call the logistic model function that serves as a wrapper for the model fitting. The logistic model function is the wrapper that inputs the observations of density, volume and range and fits the logistic model. It also takes inputs of a species name and a deployment number (for ease of looping across species and deployments). Weights can also be included for weighting the AIC calculation. It outputs an estimate the y-intercept of the model (which is used to scale the results)) and a plot of the fitted logistic function (output in ggplot). The output also includes a list of fitted values (parameters, AIC, etc.). 
 
 ```{r function call}
 f1<-logistic_model("Bocaccio rockfish",bocaccio$range_bin,bocaccio$density,bocaccio$volume,2,.5)
 print(f1)
 
 ```
+
+This function will produce a figure of the detecability function that is scaled to 1 at the nearest volume bin (in this case 0.5 m)
+
+
 ```{r Figure 2, echo=FALSE}
 p<-image_read("Bocaccio rockfish_Logistic_Fit.png")
 plot(p)
@@ -73,25 +80,27 @@ logistic_modlike
 
 ```
 
-Below is an example implementation which can be looped for multiple species and combining into a Footprint-wide abundance estimate.
+Below is an example implementation which can be looped for multiple species and combining into a Footprint-wide abundance estimate. This example is how I calculated the biomass estimates for the UHSI project (Rooper et al. in prep). Basically, it takes the detecability function from above and corrects the densities by frame for the distance range, then averages the densities and computes out an overall density. This is then expanded to an areal estimate using the Footprint Bank area estimate for rocky habitat.
 
-EXAMPLE DATA ANALYSES
 
-```{r}
+##Example to Generate Abundance Estimate
+
+```{r example code}
 #######DATA ANALYSES####################################
 species_list<-c("Bocaccio rockfish")
 deployment<-unique(bocaccio$deployment_ID)
-species_parameters<-array(dim=c(0,4))
-colnames(species_parameters)<-c("Species","start_L","start_K","x0")
+species_parameters<-array(dim=c(0,5))
+colnames(species_parameters)<-c("Species","start_L","start_K","x0","Intercept")
 
 
 #fit the logistic model to density by range data for each species
 for(i in 1:length(species_list)){
 f1<-logistic_model(species_list[i],bocaccio$range_bin,bocaccio$density,bocaccio$volume,2,.5)
-temp1<-data.frame(Species=species_list[i],start_L=f1[1],start_K=f1[2],x0=f1[3])
+temp1<-data.frame(Species=species_list[i],start_L=f1[1],start_K=f1[2],x0=f1[3],Intercept=f1[9])
 species_parameters<-rbind(species_parameters,temp1)
 }
 
+colnames(species_parameters)<-c("Species","start_L","start_K","x0","Intercept")
 functs<-array(dim=0,3)
 Range<-seq(.5,6,.1)
 for(i in 1:length(species_list)){
@@ -102,15 +111,15 @@ functs<-rbind(functs,x1)
 colnames(functs)<-c("Range","Relative_density","Species")
 
 dev.new(width=9,height=3,units="in",noRStudioGD=TRUE)
-ggplot(functs)+geom_line(aes(y=Relative_density,x=Range,colour=Species))+xlab("Range (m)")+
+p<-ggplot(functs)+geom_line(aes(y=Relative_density,x=Range,colour=Species))+xlab("Range (m)")+
   ylab("Relative density")+geom_hline(yintercept=0.10,linetype="dashed",color="red",size=.75)
-
+print(p)
 
 density_by_frame<-array(dim=c(0,4))
 colnames(density_by_frame)<-c("Group.1","Group.2","x","species")
 for(i in 1:length(species_list)){
-  data5<-zero_fill(density_range,species_list[i])
-  density_by_frame1<-aggregate(data5$density,by=list(data5$deployment_ID,data5$frame_number,data5$range_bin),FUN="sum")
+#  data5<-zero_fill(density_range,species_list[i])
+  density_by_frame1<-aggregate(bocaccio$density,by=list(bocaccio$deployment_ID,bocaccio$frame_number,bocaccio$range_bin),FUN="sum")
   density_by_frame1$corrected_density<-frame_density(species_parameters$start_L[i],species_parameters$start_K[i],species_parameters$x0[i],species_parameters$Intercept[i],density_by_frame1$Group.3,density_by_frame1$x)
   density_by_frame1<-aggregate(density_by_frame1$corrected_density,by=list(density_by_frame1$Group.1,density_by_frame1$Group.2),FUN="mean",na.rm=TRUE)
   density_by_frame1$species<-species_list[i]
@@ -130,5 +139,17 @@ colnames(abundance_estimate)<-c("Species","Density","Density_SD")
 abundance_estimate$Population<-abundance_estimate$Density*area
 abundance_estimate$Population_SE<-sqrt(abundance_estimate$Density_SD^2*(area^2))/sqrt(30)
 abundance_estimate$CV<-abundance_estimate$Density_SD/abundance_estimate$Density
-abundance_estimate
+pandoc.table(abundance_estimate)
 ```
+
+
+##References
+
+Rooper CN, Williams K, Towler R. in prep. Estimating rockfish habitat-specific abundance and behaviour using stationary cameras in the southern California Bight. 
+
+Williams K, De Robertis A, Berkowitz Z, Rooper C, Towler R. 2014. An underwater stereo-camera trap. Methods in Oceanography 11:1-12. http://dx.doi.org/10.1016/j.mio.2015.01.003
+
+Williams K, Rooper CN, De Robertis A, Levine M, Towler R. 2018. A method for computing volumetric fish density using stereo cameras. Journal of Experimental Marine Biology and Ecology 508:21-26. https://doi.org/10.1016/j.jembe.2018.08.001
+
+
+
