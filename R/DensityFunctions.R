@@ -37,9 +37,9 @@ logistic_model<-function(species="Fish",range,ob_dens,weights=1,x0_limit=2,near_
       png(filename=paste(species,"_Logistic_Fit.png",sep=""))
       print(p)
       dev.off()
-    return(list(start_L=fit1$par[1],start_K=fit1$par[2],x0=fit1$par[3],likelihood=fit1$value,convergence=fit1$convergence,counts=fit1$counts,message=fit1$message,aic=aic1))}
+    return(list(start_L=fit1$par[1],start_K=fit1$par[2],x0=fit1$par[3],likelihood=fit1$value,convergence=fit1$convergence,counts=fit1$counts,message=fit1$message,aic=aic1,intcpt=density_est))}
   if(sum(data2$ob_dens)==0){
-    return(list(c("no fish",aic=0)))}
+    return(list(c("no fish",aic=0,intcpt=0)))}
 }
 
 #' A logistic fitting function

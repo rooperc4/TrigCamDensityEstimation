@@ -52,35 +52,8 @@ Here is the code for the logistic model function. It calls two other functions; 
 
 ```{r logistic model}
 
-logistic_model<-function(species="Fish",range,ob_dens,weights=1,x0_limit=2,near_limit=1){
-  ob_dens<-aggregate(ob_dens,by=list(range),FUN="sum")
-  if(length(weights==1)){weights<-rep(1,length(range))}
-    weights<-aggregate(weights,by=list(range),FUN="mean")
-  
-    ob_dens$x<-ob_dens$x/max(ob_dens$x)
-    data2<-data.frame(range=ob_dens$Group.1,ob_dens=ob_dens$x)
-    if(sum(data2$ob_dens)>0){
-      par1<-c(start_L=-.5,start_K=.1,x0=.01)
-      fit1<-optim(par1,logistic_modlike,NULL,data2$range,data2$ob_dens,weights$x, method="L-BFGS-B",lower=c(-Inf,-Inf,x0_limit))
-      fit1
-      aic1<-2*3+2*fit1$value
-      test1<-data.frame(Group.2=seq(near_limit,6,.1),predicted=logistic_fit(seq(near_limit,6,.1),fit1$par))
-      
-      density_est<-test1[1,2]
-      
-      #plotting the output
-      p <- ggplot()+geom_point(data=data2, aes(x=range,y=ob_dens)) + ggtitle("Logistic model")+
-        geom_line(data=test1, aes(x=Group.2, y=predicted))+geom_text(aes(5, max(data2$ob_dens)*.88, label=paste("AIC =",round(aic1,0))))+xlab("Range bin (m)")+ylab("Volumetric density")+
-        geom_text(aes(5, max(data2$ob_dens), label=paste("Start_L =",round(fit1$par[1],4))))+
-        geom_text(aes(5, max(data2$ob_dens)*.96, label=paste("Start_k = ",round(fit1$par[2],2))))+
-        geom_text(aes(5, max(data2$ob_dens)*.92, label=paste("X0 = ",round(fit1$par[3],2))))
-      png(filename=paste(species,"_Logistic_Fit.png",sep=""))
-      print(p)
-      dev.off()
-    return(list(start_L=fit1$par[1],start_K=fit1$par[2],x0=fit1$par[3],likelihood=fit1$value,convergence=fit1$convergence,counts=fit1$counts,message=fit1$message,aic=aic1))}
-  if(sum(data2$ob_dens)==0){
-    return(list(c("no fish",aic=0)))}
-}
+logistic_model
+
 
 ```
 
@@ -88,12 +61,7 @@ The logistic_fit function takes the parameter values and calculates a predicted 
 
 ```{r logistic fit}
 
-logistic_fit<-function(range,par){
-  start_L<-par[1]
-  start_k<-par[2]
-  x0<-par[3]
-  out<-start_L/(1+exp(-start_k*(range-x0)))
-  return(dens=out)}
+logistic_fit
 
 ```
 
@@ -101,35 +69,26 @@ The logistic_modlike function  computes the negative-log-likelihood for the mode
 
 ```{r logistic modlike}
 
-logistic_modlike<-function(par,range,ob_dens,weights=1)
-{
-  pdens<-logistic_fit(range,par)
-  sigma<-sd(ob_dens)
-  likj<-ob_dens
-  likj<-log(sigma)+0.5*log(2*3.141593)+((ob_dens-pdens)^2)*weights/(2*sigma^2)
-  lik_sum=sum(likj)
-  return(lik_sum)
-}
+logistic_modlike
+
 ```
 
-Below is an example implementation with multiple species for combining into a Footprint-wide abundance estimate.
+Below is an example implementation which can be looped for multiple species and combining into a Footprint-wide abundance estimate.
 
 EXAMPLE DATA ANALYSES
 
-```{r, eval=FALSE}
+```{r}
 #######DATA ANALYSES####################################
-species_list<-c("Bank rockfish","Cowcod rockfish","Flag rockfish","Speckled rockfish","Bocaccio rockfish","Greenspotted rockfish","Lingcod","Greenstriped rockfish")
-deployment<-unique(density_range$deployment_ID)
-species_parameters<-array(dim=c(0,6))
-colnames(species_parameters)<-c("Species","start_L","start_K","x0","Intercept","SD")
+species_list<-c("Bocaccio rockfish")
+deployment<-unique(bocaccio$deployment_ID)
+species_parameters<-array(dim=c(0,4))
+colnames(species_parameters)<-c("Species","start_L","start_K","x0")
 
 
 #fit the logistic model to density by range data for each species
 for(i in 1:length(species_list)){
-data5<-zero_fill(density_range,species_list[i])
-f1<-logistic_model(species_list[i],species_by_range$Group.1,species_by_range$x,volume_weights$x,2,.5)
-if(species_list[i]=="Greenstriped rockfish"){f1<-logistic_model(species_list[i],species_by_range$Group.1,species_by_range$x,volume_weights$x,5,.5)}
-temp1<-data.frame(Species=species_list[i],start_L=f1[1],start_K=f1[2],x0=f1[3],Intercept=as.numeric(f1[4]),SD=as.numeric(f1[5]))
+f1<-logistic_model(species_list[i],bocaccio$range_bin,bocaccio$density,bocaccio$volume,2,.5)
+temp1<-data.frame(Species=species_list[i],start_L=f1[1],start_K=f1[2],x0=f1[3])
 species_parameters<-rbind(species_parameters,temp1)
 }
 
@@ -158,7 +117,6 @@ for(i in 1:length(species_list)){
   density_by_frame<-rbind(density_by_frame,density_by_frame1)
 }  
 colnames(density_by_frame)<-c("deployment_ID","frame_number","density","species")  
-
 
 #ABUNDANCE ESTIMATION
 area<-10*10*6819*1.25
