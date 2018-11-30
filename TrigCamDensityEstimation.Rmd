@@ -28,7 +28,7 @@ plot(p)
 As an example, we will use bocaccio rockfish data collected at 30 sites over ~24 hour deployments on the Footprint Bank. These data were collected in October 2017 aboard the R/V Bell-Shimada. In this case the columns are a deployment number, a range bin and a volumetric density in that range bin. 
 
 ```{r load data}
-load("bocaccio")
+data(bocaccio)
 pander::pandoc.table(bocaccio[1:6,], digits=3 )
 
 ```
