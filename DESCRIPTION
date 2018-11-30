@@ -1,0 +1,12 @@
+Package: TrigCamDensityEstimation
+Title: Estimates Volumetric Density for Stationary Camera Deployments
+Version: 0.0.0.9000
+Authors@R: person("Chris", "Rooper", email = "Chris.Rooper@dfo-mpo.gc.ca", role = c("aut", "cre"))
+	person("Kresimir", "Williams", email = "Kresimir.Williams@noaa.gov", role = c("aut"))
+Description: This package contains functions that allow the calculation of volumetric densities from stationary stereo-cameras. The methods follow Williams et al. 2018. Contains example data collected during a survey of Footprint Bank, Channel Islands, California, USA in 2017.
+Imports: ggplot2
+Depends: R (>= 3.2)
+License: GPLv3
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.0
